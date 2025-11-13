@@ -8,7 +8,7 @@ type SortKey = 'id' | 'title' | 'body' | 'email'
 type SortOrder = 'asc' | 'desc'
 
 export const usePostsStore = defineStore('posts', () => {
-  const allPosts = ref<Post[]>([]) 
+  const allPosts = ref<Post[]>([])
   const posts = ref<Post[]>([])
   const users = ref<User[]>([])
   const loading = ref(false)
@@ -71,7 +71,8 @@ export const usePostsStore = defineStore('posts', () => {
     start.value += limit
   }
 
-  const search = (query: string) => {
+  const search = async(query: string) => {
+    isSorting.value = true
     searchQuery.value = query.trim().toLowerCase()
     start.value = 0
 
@@ -79,8 +80,11 @@ export const usePostsStore = defineStore('posts', () => {
       post.title.toLowerCase().includes(searchQuery.value),
     )
 
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
     posts.value = filtered.slice(0, limit)
     start.value = limit
+    isSorting.value = false
   }
 
   const sortAllPosts = () => {
@@ -102,9 +106,6 @@ export const usePostsStore = defineStore('posts', () => {
   const sortPosts = async (key: SortKey) => {
     isSorting.value = true
 
-    const el = document.querySelector('[ref="el"]') as HTMLElement | null
-    if (el) el.scrollTo({ top: 0 })
-
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     if (sortKey.value === key) {
@@ -118,7 +119,6 @@ export const usePostsStore = defineStore('posts', () => {
 
     posts.value = allPosts.value.slice(0, limit)
     start.value = limit
-
 
     isSorting.value = false
   }
