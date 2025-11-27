@@ -12,6 +12,10 @@ interface FieldInfo {
   title: string
 }
 
+type Row = {
+  [key: string]: any
+}
+
 export const usePostsStore = defineStore('posts', () => {
   const allPosts = ref<Post[]>([])
   const posts = ref<Post[]>([])
@@ -54,17 +58,17 @@ export const usePostsStore = defineStore('posts', () => {
       info.value = infoRes.data.result
 
       //словарь
-      const stageMap: Record<string, string> = {}
+      const stageMap: Row = {}
       valueDealRes.data.result
-        .filter((item: any) => item.ENTITY_ID === 'DEAL_STAGE')
-        .forEach((item: any) => {
+        .filter((item: Row) => item.ENTITY_ID === 'DEAL_STAGE')
+        .forEach((item: Row) => {
           stageMap[item.STATUS_ID] = item.NAME
         })
 
-      const sourceMap: Record<string, string> = {}
+      const sourceMap: Row = {}
       valueDealRes.data.result
-        .filter((item: any) => item.ENTITY_ID === 'SOURCE')
-        .forEach((item: any) => {
+        .filter((item: Row) => item.ENTITY_ID === 'SOURCE')
+        .forEach((item: Row) => {
           sourceMap[item.STATUS_ID] = item.NAME
         })
 
@@ -112,9 +116,16 @@ export const usePostsStore = defineStore('posts', () => {
     //фильтрация id
     const filtered = allPosts.value.filter((post) => {
       const postId = Number(post.ID)
+
       const matchesTitle =
-        searchQuery.value === '' || post.TITLE?.toLowerCase().includes(searchQuery.value)
+        searchQuery.value === '' ||
+        post.TITLE?.toLowerCase().includes(searchQuery.value.toLowerCase())
+
+      // если верхняя граница — 0, то ничего не должно находиться
+      if (idTo === 0) return false
+
       const matchesId = (!idFrom || postId >= idFrom) && (!idTo || postId <= idTo)
+
       return matchesTitle && matchesId
     })
 
