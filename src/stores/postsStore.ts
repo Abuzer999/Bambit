@@ -7,11 +7,16 @@ import type { SortKey } from '../interface/SortKey'
 
 type SortOrder = 'asc' | 'desc'
 
+interface FieldInfo {
+  type: string
+  title: string
+}
+
 export const usePostsStore = defineStore('posts', () => {
   const allPosts = ref<Post[]>([])
   const posts = ref<Post[]>([])
   const users = ref<User[]>([])
-  const info = ref([])
+  const info = ref<Record<string, FieldInfo>>({})
   const loading = ref(false)
   const isSorting = ref(false)
   const start = ref(0)
@@ -53,14 +58,18 @@ export const usePostsStore = defineStore('posts', () => {
       valueDealRes.data.result
         .filter((item: Record<string, string>) => item.ENTITY_ID === 'DEAL_STAGE')
         .forEach((item: Record<string, string>) => {
-          stageMap[item.STATUS_ID] = item.NAME
+          if (item.STATUS_ID) {
+            stageMap[item.STATUS_ID] = item.NAME
+          }
         })
 
       const sourceMap: Record<string, string> = {}
       valueDealRes.data.result
         .filter((item: Record<string, string>) => item.ENTITY_ID === 'SOURCE')
         .forEach((item: Record<string, string>) => {
-          sourceMap[item.STATUS_ID] = item.NAME
+          if (item.STATUS_ID) {
+            sourceMap[item.STATUS_ID] = item.NAME
+          }
         })
 
       allPosts.value = listDealRes.data.result.map((deal: Post) => {
@@ -139,7 +148,7 @@ export const usePostsStore = defineStore('posts', () => {
           const [day, month, year] = value.split('.')
           return new Date(`${year}-${month}-${day}`).getTime()
         }
-        return new Date(value).getTime()
+        return new Date(value as string).getTime()
 
       case 'boolean':
         return value ? 1 : 0
