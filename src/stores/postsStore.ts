@@ -56,20 +56,16 @@ export const usePostsStore = defineStore('posts', () => {
       //словарь
       const stageMap: Record<string, string> = {}
       valueDealRes.data.result
-        .filter((item: Record<string, string>) => item.ENTITY_ID === 'DEAL_STAGE')
-        .forEach((item: Record<string, string>) => {
-          if (item.STATUS_ID) {
-            stageMap[item.STATUS_ID] = item.NAME
-          }
+        .filter((item: any) => item.ENTITY_ID === 'DEAL_STAGE')
+        .forEach((item: any) => {
+          stageMap[item.STATUS_ID] = item.NAME
         })
 
       const sourceMap: Record<string, string> = {}
       valueDealRes.data.result
-        .filter((item: Record<string, string>) => item.ENTITY_ID === 'SOURCE')
-        .forEach((item: Record<string, string>) => {
-          if (item.STATUS_ID) {
-            sourceMap[item.STATUS_ID] = item.NAME
-          }
+        .filter((item: any) => item.ENTITY_ID === 'SOURCE')
+        .forEach((item: any) => {
+          sourceMap[item.STATUS_ID] = item.NAME
         })
 
       allPosts.value = listDealRes.data.result.map((deal: Post) => {
