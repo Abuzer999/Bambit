@@ -19,20 +19,20 @@ watch(
 )
 
 const columns = [
-  { key: 'ID' },
-  { key: 'TITLE' },
-  { key: 'STAGE_SEMANTIC_ID' },
-  { key: 'stageName' },
-  { key: 'assignedBy' },
-  { key: 'DATE_CREATE' },
-  { key: 'createdBy' },
-  { key: 'CATEGORY_ID' },
-  { key: 'CURRENCY_ID' },
-  { key: 'OPPORTUNITY' },
-  { key: 'CLOSEDATE' },
-  { key: 'sourceName' },
-  { key: 'UTM_SOURCE' },
-  { key: 'LEAD_ID' },
+  { key: 'ID', width: '60px' },
+  { key: 'TITLE', width: '200px' },
+  { key: 'STAGE_SEMANTIC_ID', width: '150px' },
+  { key: 'stageName', width: '150px' },
+  { key: 'assignedBy', width: '150px' },
+  { key: 'DATE_CREATE', width: '150px' },
+  { key: 'createdBy', width: '100px' },
+  { key: 'CATEGORY_ID', width: '100px' },
+  { key: 'CURRENCY_ID', width: '90px' },
+  { key: 'OPPORTUNITY', width: '100px' },
+  { key: 'CLOSEDATE', width: '170px' },
+  { key: 'sourceName', width: '100px' },
+  { key: 'UTM_SOURCE', width: '180px' },
+  { key: 'LEAD_ID', width: '70px' },
 ]
 
 useInfiniteScroll(el, postsStore.loadMorePosts, {
@@ -74,10 +74,7 @@ onMounted(async () => {
 <template>
   <div class="lg:h-[600px] w-screen h-[350px] bg-primary mt-7 rounded-xl p-4 overflow-hidden">
     <div ref="el" class="overflow-y-auto h-[580px]">
-      <div
-        v-if="loading || postsStore.searchLoading"
-        class="flex items-center justify-center h-full"
-      >
+      <div v-if="loading" class="flex items-center justify-center h-full">
         <Loader />
       </div>
 
@@ -90,6 +87,7 @@ onMounted(async () => {
             <th
               v-for="tableHeader in tableHeaders"
               class="border p-1 cursor-pointer"
+              :style="{ width: columns.find((c) => c.key === tableHeader.key)?.width }"
               @click="postsStore.sortPosts(tableHeader.key)"
               :key="tableHeader.key"
             >

@@ -48,6 +48,7 @@ export const usePostsStore = defineStore('posts', () => {
       users.value = usersRes.data.result
       info.value = infoRes.data.result
 
+      //словарь
       const stageMap: Record<string, string> = {}
       valueDealRes.data.result
         .filter((item: Record<string, string>) => item.ENTITY_ID === 'DEAL_STAGE')
