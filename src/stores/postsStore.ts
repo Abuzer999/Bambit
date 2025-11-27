@@ -18,10 +18,6 @@ type DealStatusItem = {
   NAME: string
 }
 
-type Row = {
-  [key: string]: unknown
-}
-
 export const usePostsStore = defineStore('posts', () => {
   const allPosts = ref<Post[]>([])
   const posts = ref<Post[]>([])
