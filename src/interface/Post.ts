@@ -13,8 +13,10 @@ export interface Post {
   SOURCE_ID: string
   UTM_SOURCE: string
   LEAD_ID: string
-  stageName: string
-  sourceName: string
-  assignedBy: string
-  createdBy: string
+  stageName?: string
+  sourceName?: string
+  assignedBy?: string
+  createdBy?: string
+
+  [key: string]: unknown
 }

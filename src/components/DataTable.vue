@@ -119,9 +119,9 @@ onMounted(async () => {
               v-for="col in columns"
               :key="col.key"
               class="border p-2 max-w-[100px] truncate whitespace-nowrap overflow-hidden"
-              :title="(post as any)[col.key]"
+              :title="(post)[col.key]"
             >
-              {{ (post as any)[col.key] }}
+              {{ (post)[col.key] }}
             </td>
           </tr>
         </tbody>

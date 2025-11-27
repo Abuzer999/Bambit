@@ -13,7 +13,7 @@ interface FieldInfo {
 }
 
 type Row = {
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export const usePostsStore = defineStore('posts', () => {
@@ -58,18 +58,18 @@ export const usePostsStore = defineStore('posts', () => {
       info.value = infoRes.data.result
 
       //словарь
-      const stageMap: Row = {}
+      const stageMap: Record<string, string> = {}
       valueDealRes.data.result
-        .filter((item: Row) => item.ENTITY_ID === 'DEAL_STAGE')
-        .forEach((item: Row) => {
-          stageMap[item.STATUS_ID] = item.NAME
+        .filter((item: unknown) => item.ENTITY_ID === 'DEAL_STAGE')
+        .forEach((item: unknown) => {
+          if (item.STATUS_ID) stageMap[item.STATUS_ID] = item.NAME
         })
 
-      const sourceMap: Row = {}
+      const sourceMap: Record<string, string> = {}
       valueDealRes.data.result
-        .filter((item: Row) => item.ENTITY_ID === 'SOURCE')
-        .forEach((item: Row) => {
-          sourceMap[item.STATUS_ID] = item.NAME
+        .filter((item: unknown) => item.ENTITY_ID === 'SOURCE')
+        .forEach((item: unknown) => {
+          if (item.STATUS_ID) sourceMap[item.STATUS_ID] = item.NAME
         })
 
       allPosts.value = listDealRes.data.result.map((deal: Post) => {
