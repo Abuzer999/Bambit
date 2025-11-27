@@ -1,51 +1,81 @@
 <script setup lang="ts">
-import { onMounted, useTemplateRef, ref } from 'vue'
+import { onMounted, useTemplateRef, ref, watch, nextTick } from 'vue'
 import { useInfiniteScroll } from '@vueuse/core'
 import { usePostsStore } from '../stores/postsStore'
-import type { User } from '../interface/User'
+import type { SortKey } from '../interface/SortKey'
 import Loader from './Loader.vue'
-import ModalInfo from './ModalInfo.vue'
 
 const postsStore = usePostsStore()
 const el = useTemplateRef<HTMLDivElement>('el')
-const open = ref(false)
-const selectedUser = ref<User | null>(null)
+const tableHeaders = ref<{ key: SortKey; label: string }[]>([])
 const loading = ref(true)
 
-const openModal = (userId: number, postId: number) => {
-  const user = postsStore.users.find((u: User) => u.id === userId)
-  selectedUser.value = user || null
-  open.value = true
+watch(
+  () => postsStore.posts,
+  async () => {
+    await nextTick() //обновление DOM
+    if (el.value) el.value.scrollTop = 0
+  },
+)
 
-  // отмечаю как просмотренного
-  postsStore.markPostAsViewed(postId)
-}
-
-const closeModal = () => {
-  open.value = false
-  selectedUser.value = null
-}
+const columns = [
+  { key: 'ID' },
+  { key: 'TITLE' },
+  { key: 'STAGE_SEMANTIC_ID' },
+  { key: 'stageName' },
+  { key: 'assignedBy' },
+  { key: 'DATE_CREATE' },
+  { key: 'createdBy' },
+  { key: 'CATEGORY_ID' },
+  { key: 'CURRENCY_ID' },
+  { key: 'OPPORTUNITY' },
+  { key: 'CLOSEDATE' },
+  { key: 'sourceName' },
+  { key: 'UTM_SOURCE' },
+  { key: 'LEAD_ID' },
+]
 
 useInfiniteScroll(el, postsStore.loadMorePosts, {
   distance: 200,
-   canLoadMore: () => postsStore.start < postsStore.allPosts.length,
+  canLoadMore: () => postsStore.start < postsStore.allPosts.length,
 })
 
 onMounted(async () => {
   loading.value = true
-  await postsStore.getUsers()
-  await postsStore.loadPosts()
+  await postsStore.loadApi()
+
+  //нужные заголовки
+  const neededKeys = [
+    'ID',
+    'TITLE',
+    'STAGE_SEMANTIC_ID',
+    'STAGE_ID',
+    'ASSIGNED_BY_ID',
+    'DATE_CREATE',
+    'CREATED_BY_ID',
+    'CATEGORY_ID',
+    'CURRENCY_ID',
+    'OPPORTUNITY',
+    'CLOSEDATE',
+    'SOURCE_ID',
+    'UTM_SOURCE',
+    'LEAD_ID',
+  ]
+
+  tableHeaders.value = neededKeys.map((key) => ({
+    key: key as SortKey,
+    label: postsStore.info[key]?.title ?? key,
+  }))
+
   loading.value = false
 })
 </script>
 
 <template>
-  <div
-    class="lg:w-[600px] lg:h-[600px] w-[350px] h-[350px] bg-primary mt-7 rounded-xl p-4 overflow-hidden"
-  >
+  <div class="lg:h-[600px] w-screen h-[350px] bg-primary mt-7 rounded-xl p-4 overflow-hidden">
     <div ref="el" class="overflow-y-auto h-[580px]">
       <div
-        v-if="loading || postsStore.searchLoading || postsStore.isSorting"
+        v-if="loading || postsStore.searchLoading"
         class="flex items-center justify-center h-full"
       >
         <Loader />
@@ -55,14 +85,19 @@ onMounted(async () => {
         v-else-if="postsStore.posts.length"
         class="w-full table-auto border-collapse border border-gray-300"
       >
-        <thead class="sticky top-0 z-10 bg-black border dark:bg-white">
+        <thead class="sticky top-0 z-10 bg-black border dark:bg-white text-[15px]">
           <tr class="text-white dark:text-black">
-            <th class="border p-1 cursor-pointer" @click="postsStore.sortPosts('id')">
-              ID
+            <th
+              v-for="tableHeader in tableHeaders"
+              class="border p-1 cursor-pointer"
+              @click="postsStore.sortPosts(tableHeader.key)"
+              :key="tableHeader.key"
+            >
+              {{ tableHeader.label }}
               <span class="ml-1 text-gray-400">
                 <span
                   :class="
-                    postsStore.sortKey === 'id' && postsStore.sortOrder === 'asc'
+                    postsStore.sortKey === tableHeader.key && postsStore.sortOrder === 'asc'
                       ? 'text-green-400'
                       : ''
                   "
@@ -70,73 +105,7 @@ onMounted(async () => {
                 >
                 <span
                   :class="
-                    postsStore.sortKey === 'id' && postsStore.sortOrder === 'desc'
-                      ? 'text-green-400'
-                      : ''
-                  "
-                  >↓</span
-                >
-              </span>
-            </th>
-
-            <th class="border p-1 cursor-pointer" @click="postsStore.sortPosts('title')">
-              Title
-              <span class="ml-1 text-gray-400">
-                <span
-                  :class="
-                    postsStore.sortKey === 'title' && postsStore.sortOrder === 'asc'
-                      ? 'text-green-400'
-                      : ''
-                  "
-                  >↑</span
-                >
-                <span
-                  :class="
-                    postsStore.sortKey === 'title' && postsStore.sortOrder === 'desc'
-                      ? 'text-green-400'
-                      : ''
-                  "
-                  >↓</span
-                >
-              </span>
-            </th>
-
-            <th class="border p-1 cursor-pointer" @click="postsStore.sortPosts('body')">
-              Body
-              <span class="ml-1 text-gray-400">
-                <span
-                  :class="
-                    postsStore.sortKey === 'body' && postsStore.sortOrder === 'asc'
-                      ? 'text-green-400'
-                      : ''
-                  "
-                  >↑</span
-                >
-                <span
-                  :class="
-                    postsStore.sortKey === 'body' && postsStore.sortOrder === 'desc'
-                      ? 'text-green-400'
-                      : ''
-                  "
-                  >↓</span
-                >
-              </span>
-            </th>
-
-            <th class="border p-1 cursor-pointer" @click="postsStore.sortPosts('email')">
-              Email
-              <span class="ml-1 text-gray-400">
-                <span
-                  :class="
-                    postsStore.sortKey === 'email' && postsStore.sortOrder === 'asc'
-                      ? 'text-green-400'
-                      : ''
-                  "
-                  >↑</span
-                >
-                <span
-                  :class="
-                    postsStore.sortKey === 'email' && postsStore.sortOrder === 'desc'
+                    postsStore.sortKey === tableHeader.key && postsStore.sortOrder === 'desc'
                       ? 'text-green-400'
                       : ''
                   "
@@ -147,31 +116,14 @@ onMounted(async () => {
           </tr>
         </thead>
         <tbody>
-          <tr class="text-white dark:text-black" v-for="post in postsStore.posts" :key="post.id">
-            <td class="border p-2">{{ post.id }}</td>
+          <tr class="text-white dark:text-black" v-for="post in postsStore.posts" :key="post.ID">
             <td
-              :title="post.title.length > 12 ? post.title : ''"
+              v-for="col in columns"
+              :key="col.key"
               class="border p-2 max-w-[100px] truncate whitespace-nowrap overflow-hidden"
+              :title="post[col.key]"
             >
-              {{ post.title }}
-            </td>
-            <td
-              :title="post.body.length > 25 ? post.body : ''"
-              class="border p-2 max-w-[180px] truncate whitespace-nowrap overflow-hidden"
-            >
-              {{ post.body }}
-            </td>
-
-            <td
-              @click="openModal(post.userId, post.id)"
-              class="border p-2 w-50 cursor-pointer hover:underline"
-              :class="
-                postsStore.viewedPosts.includes(post.id)
-                  ? 'text-[#08ff31]'
-                  : 'text-white dark:text-black'
-              "
-            >
-              {{ post.email }}
+              {{ post[col.key] }}
             </td>
           </tr>
         </tbody>
@@ -183,10 +135,6 @@ onMounted(async () => {
       >
         Ничего не найдено
       </span>
-
-      <Teleport to="body">
-        <ModalInfo v-show="open" @close="closeModal" v-bind="selectedUser" />
-      </Teleport>
     </div>
   </div>
 </template>
