@@ -24,74 +24,116 @@ export const usePostsStore = defineStore('posts', () => {
   const users = ref<User[]>([])
   const info = ref<Record<string, FieldInfo>>({})
   const loading = ref(false)
-  const isSorting = ref(false)
   const start = ref(0)
   const limit = 30
-  const searchQuery = ref('')
+
+  const usersObj = ref<Record<number, { fullName: string }>>({})
+  const filterIdFrom = ref<number>(2)
+  const filterIdTo = ref<number>(23560)
   const sortKey = ref<SortKey>('ID')
   const sortOrder = ref<SortOrder>('asc')
+  const isSorting = ref(false)
+
+  //api
+  const fetchUsers = () =>
+    axios
+      .get('https://dveri-bambit.bitrix24.ru/rest/254/v2piz26ia0p3jner/user.get.json')
+      .then((res) => res.data.result)
+
+  const fetchDealFields = () =>
+    axios
+      .get('https://dveri-bambit.bitrix24.ru/rest/254/rwqlpaqzd9vh1a1s/crm.deal.fields.json')
+      .then((res) => res.data.result)
+
+  const fetchDeals = (filterIdFrom?: number, filterIdTo?: number) => {
+    if (!filterIdFrom) return Promise.resolve([])
+
+    const data = {
+      filter: {
+        '>=ID': filterIdFrom,
+        '<=ID': filterIdTo,
+      },
+      select: [
+        'ID',
+        'TITLE',
+        'STAGE_SEMANTIC_ID',
+        'STAGE_ID',
+        'ASSIGNED_BY_ID',
+        'DATE_CREATE',
+        'CREATED_BY_ID',
+        'CATEGORY_ID',
+        'CURRENCY_ID',
+        'OPPORTUNITY',
+        'CLOSEDATE',
+        'SOURCE_ID',
+        'UTM_SOURCE',
+        'LEAD_ID',
+      ],
+    }
+
+    return axios
+      .post('https://dveri-bambit.bitrix24.ru/rest/254/lssx884kjza7kygu/crm.deal.list.json', data)
+      .then((res) => res.data.result || [])
+  }
+
+  const fetchDealStatuses = () =>
+    axios
+      .get('https://dveri-bambit.bitrix24.ru/rest/254/qefzrc7xpwl0av5v/crm.status.list.json')
+      .then((res) => res.data.result)
+
+  //словари
+  const createStageMap = (statuses: DealStatusItem[]): Record<string, string> =>
+    Object.fromEntries(
+      statuses.filter((s) => s.ENTITY_ID === 'DEAL_STAGE').map((s) => [s.STATUS_ID, s.NAME]),
+    )
+
+  const createSourceMap = (statuses: DealStatusItem[]): Record<string, string> =>
+    Object.fromEntries(
+      statuses.filter((s) => s.ENTITY_ID === 'SOURCE').map((s) => [s.STATUS_ID, s.NAME]),
+    )
+
+  const prepareUsersMap = (usersArray: User[]) => {
+    usersObj.value = Object.fromEntries(
+      usersArray.map((u) => [u.ID, { fullName: `${u.NAME} ${u.LAST_NAME}` }]),
+    )
+  }
+
+  const formatDeals = (
+    deals: Post[],
+    usersMap: Record<number, { fullName: string }>,
+    stageMap: Record<string, string>,
+    sourceMap: Record<string, string>,
+  ) =>
+    deals.map((deal) => ({
+      ...deal,
+      STAGE_ID: stageMap[deal.STAGE_ID] ?? '',
+      SOURCE_ID: sourceMap[deal.SOURCE_ID] ?? '',
+      ASSIGNED_BY_ID: usersMap[Number(deal.ASSIGNED_BY_ID)]?.fullName ?? '',
+      CREATED_BY_ID: usersMap[Number(deal.CREATED_BY_ID)]?.fullName ?? '',
+      DATE_CREATE: deal.DATE_CREATE ? new Date(deal.DATE_CREATE).toLocaleDateString('ru-RU') : '',
+      CLOSEDATE: deal.CLOSEDATE ? new Date(deal.CLOSEDATE).toLocaleDateString('ru-RU') : '',
+    }))
 
   const loadApi = async () => {
     if (loading.value) return
     loading.value = true
 
     try {
-      const userPromise = axios.get(
-        'https://dveri-bambit.bitrix24.ru/rest/254/v2piz26ia0p3jner/user.get.json',
-      )
-      const infoPromise = axios.get(
-        'https://dveri-bambit.bitrix24.ru/rest/254/rwqlpaqzd9vh1a1s/crm.deal.fields.json',
-      )
-      const listDealPromise = axios.get(
-        'https://dveri-bambit.bitrix24.ru/rest/254/lssx884kjza7kygu/crm.deal.list.json?filter[>ID]=2&filter[<ID]=23560&select[0]=ID&select[1]=TITLE&select[2]=STAGE_SEMANTIC_ID&select[3]=STAGE_ID&select[4]=ASSIGNED_BY_ID&select[5]=DATE_CREATE&select[6]=CREATED_BY_ID&select[7]=CATEGORY_ID&select[8]=CURRENCY_ID&select[9]=OPPORTUNITY&select[10]=CLOSEDATE&select[11]=SOURCE_ID&select[12]=UTM_SOURCE&select[13]=LEAD_ID',
-      )
-      const valueDealPromise = axios.get(
-        'https://dveri-bambit.bitrix24.ru/rest/254/qefzrc7xpwl0av5v/crm.status.list.json',
-      )
-
-      const [usersRes, valueDealRes, infoRes, listDealRes] = await Promise.all([
-        userPromise,
-        valueDealPromise,
-        infoPromise,
-        listDealPromise,
+      const [usersData, dealStatuses, dealFields, deals] = await Promise.all([
+        fetchUsers(),
+        fetchDealStatuses(),
+        fetchDealFields(),
+        fetchDeals(filterIdFrom.value, filterIdTo.value),
       ])
 
-      users.value = usersRes.data.result
-      info.value = infoRes.data.result
+      users.value = usersData
+      prepareUsersMap(usersData)
+      info.value = dealFields
 
-      //словарь
-      const stageMap: Record<string, string> = {}
-      valueDealRes.data.result
-        .filter((item: DealStatusItem) => item.ENTITY_ID === 'DEAL_STAGE')
-        .forEach((item: DealStatusItem) => {
-          stageMap[item.STATUS_ID] = item.NAME
-        })
+      const stageMap = createStageMap(dealStatuses)
+      const sourceMap = createSourceMap(dealStatuses)
 
-      const sourceMap: Record<string, string> = {}
-      valueDealRes.data.result
-        .filter((item: DealStatusItem) => item.ENTITY_ID === 'SOURCE')
-        .forEach((item: DealStatusItem) => {
-          sourceMap[item.STATUS_ID] = item.NAME
-        })
-
-      allPosts.value = listDealRes.data.result.map((deal: Post) => {
-        const assignedUser = users.value.find((u) => u.ID === deal.ASSIGNED_BY_ID)
-        const createdUser = users.value.find((u) => u.ID === deal.CREATED_BY_ID)
-
-        return {
-          ...deal,
-          stageName: stageMap[deal.STAGE_ID] || '',
-          sourceName: sourceMap[deal.SOURCE_ID] || '',
-          assignedBy: assignedUser ? `${assignedUser.NAME} ${assignedUser.LAST_NAME}` : '',
-          createdBy: createdUser ? `${createdUser.NAME} ${createdUser.LAST_NAME}` : '',
-          DATE_CREATE: deal.DATE_CREATE
-            ? new Date(deal.DATE_CREATE).toLocaleDateString('ru-RU')
-            : '',
-          CLOSEDATE: deal.CLOSEDATE ? new Date(deal.CLOSEDATE).toLocaleDateString('ru-RU') : '',
-        }
-      })
-
-      console.log(info.value)
+      allPosts.value = formatDeals(deals, usersObj.value, stageMap, sourceMap)
 
       posts.value = allPosts.value.slice(0, limit)
       start.value = limit
@@ -106,34 +148,32 @@ export const usePostsStore = defineStore('posts', () => {
   const loadMorePosts = () => {
     if (start.value >= allPosts.value.length) return
     const nextPosts = allPosts.value.slice(start.value, start.value + limit)
+    console.log('Loading API finished')
     posts.value.push(...nextPosts)
     start.value += limit
   }
 
-  const search = async (query: string, idFrom?: number, idTo?: number) => {
-    isSorting.value = true
-    searchQuery.value = query.trim().toLowerCase()
-    start.value = 0
+  const searchById = async () => {
+    if (loading.value) return
+    loading.value = true
 
-    //фильтрация id
-    const filtered = allPosts.value.filter((post) => {
-      const postId = Number(post.ID)
+    try {
+      const deals = await fetchDeals(filterIdFrom.value, filterIdTo.value)
 
-      const matchesTitle =
-        searchQuery.value === '' ||
-        post.TITLE?.toLowerCase().includes(searchQuery.value.toLowerCase())
+      const dealStatuses = await fetchDealStatuses()
+      const stageMap = createStageMap(dealStatuses)
+      const sourceMap = createSourceMap(dealStatuses)
 
-      // если верхняя граница — 0, то ничего не должно находиться
-      if (idTo === 0) return false
+      allPosts.value = formatDeals(deals, usersObj.value, stageMap, sourceMap)
 
-      const matchesId = (!idFrom || postId >= idFrom) && (!idTo || postId <= idTo)
-
-      return matchesTitle && matchesId
-    })
-
-    posts.value = filtered.slice(0, limit)
-    start.value = limit
-    isSorting.value = false
+      posts.value = allPosts.value.slice(0, limit)
+      start.value = limit
+    } catch (error) {
+      console.error(error)
+      alert('Ошибка при получении данных с сервера.')
+    } finally {
+      loading.value = false
+    }
   }
 
   const normalizeValue = (value: unknown, key: SortKey) => {
@@ -209,7 +249,9 @@ export const usePostsStore = defineStore('posts', () => {
     start,
     limit,
     loadMorePosts,
-    search,
+    filterIdFrom,
+    filterIdTo,
+    searchById,
     sortKey,
     sortOrder,
     sortPosts,

@@ -7,6 +7,7 @@ export type SortKey =
   | 'DATE_CREATE'
   | 'CREATED_BY_ID'
   | 'CREATED_BY_ID'
+  | 'CATEGORY_ID'
   | 'CURRENCY_ID'
   | 'OPPORTUNITY'
   | 'CLOSEDATE'

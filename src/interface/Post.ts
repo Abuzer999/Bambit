@@ -1,9 +1,9 @@
 export interface Post {
   ID: number
   TITLE: string
-  ASSIGNED_BY_ID: number
+  ASSIGNED_BY_ID: string | number
   DATE_CREATE: string
-  CREATED_BY_ID: number
+  CREATED_BY_ID: string | number
   CATEGORY_ID: string
   CURRENCY_ID: string
   OPPORTUNITY: string
@@ -13,10 +13,6 @@ export interface Post {
   SOURCE_ID: string
   UTM_SOURCE: string
   LEAD_ID: string
-  stageName?: string
-  sourceName?: string
-  assignedBy?: string
-  createdBy?: string
 
-  [key: string]: unknown
+  [key: string]: string | number
 }
