@@ -12,6 +12,9 @@ export const usePostsStore = defineStore('posts', () => {
   const start = ref(0)
   const limit = 30
 
+  const dealStatusesRef = ref<DealStatusItem[]>([])
+  const stageMapRef = ref<Record<string, string>>({})
+  const sourceMapRef = ref<Record<string, string>>({})
   const usersObj = ref<Record<number, { fullName: string }>>({})
   const filterIdFrom = ref<number>(2)
   const filterIdTo = ref<number>(23560)
@@ -19,24 +22,41 @@ export const usePostsStore = defineStore('posts', () => {
   const sortOrder = ref<SortOrder>('asc')
   const isSorting = ref(false)
 
-  //api
-  const fetchUsers = () =>
-    axios
-      .get('https://dveri-bambit.bitrix24.ru/rest/254/v2piz26ia0p3jner/user.get.json')
-      .then((res) => res.data.result)
+  const fetchUsers = async (): Promise<User[]> => {
+    const res = await axios.get(
+      'https://dveri-bambit.bitrix24.ru/rest/254/v2piz26ia0p3jner/user.get.json',
+    )
+    const usersData: User[] = res.data.result
+    users.value = usersData
+    usersObj.value = prepareUsersMap(usersData)
+    return usersData
+  }
 
-  const fetchDealFields = () =>
-    axios
-      .get('https://dveri-bambit.bitrix24.ru/rest/254/rwqlpaqzd9vh1a1s/crm.deal.fields.json')
-      .then((res) => res.data.result)
+  const fetchDealFields = async (): Promise<Record<string, FieldInfo>> => {
+    const res = await axios.get(
+      'https://dveri-bambit.bitrix24.ru/rest/254/rwqlpaqzd9vh1a1s/crm.deal.fields.json',
+    )
+    const fields: Record<string, FieldInfo> = res.data.result
+    info.value = { ...fields }
+    return fields
+  }
 
-  const fetchDeals = (filterIdFrom?: number, filterIdTo?: number) => {
+  const fetchDealStatuses = async (): Promise<DealStatusItem[]> => {
+    const res = await axios.get(
+      'https://dveri-bambit.bitrix24.ru/rest/254/qefzrc7xpwl0av5v/crm.status.list.json',
+    )
+    const statuses: DealStatusItem[] = res.data.result
+    dealStatusesRef.value = statuses
+    stageMapRef.value = createStageMap(statuses)
+    sourceMapRef.value = createSourceMap(statuses)
+    return statuses
+  }
+
+  const fetchDeals = async (filterIdFrom?: number, filterIdTo?: number): Promise<Post[]> => {
     const filter: Record<string, number> = {}
-
-    if (typeof filterIdFrom === 'number' && !Number.isNaN(filterIdFrom)) {
+    if (typeof filterIdFrom === 'number' && !Number.isNaN(filterIdFrom)){
       filter['>=ID'] = filterIdFrom
     }
-
     if (typeof filterIdTo === 'number' && !Number.isNaN(filterIdTo)) {
       filter['<=ID'] = filterIdTo
     }
@@ -61,15 +81,19 @@ export const usePostsStore = defineStore('posts', () => {
       ],
     }
 
-    return axios
-      .post('https://dveri-bambit.bitrix24.ru/rest/254/lssx884kjza7kygu/crm.deal.list.json', data)
-      .then((res) => res.data.result || [])
-  }
+    const res = await axios.post(
+      'https://dveri-bambit.bitrix24.ru/rest/254/lssx884kjza7kygu/crm.deal.list.json',
+      data,
+    )
+    const deals: Post[] = res.data.result || []
+    const formatted = formatDeals(deals, usersObj.value, stageMapRef.value, sourceMapRef.value)
 
-  const fetchDealStatuses = () =>
-    axios
-      .get('https://dveri-bambit.bitrix24.ru/rest/254/qefzrc7xpwl0av5v/crm.status.list.json')
-      .then((res) => res.data.result)
+    allPosts.value = formatted
+    posts.value = formatted.slice(0, limit)
+    start.value = limit
+
+    return formatted
+  }
 
   //словари
   const createStageMap = (statuses: DealStatusItem[]): Record<string, string> =>
@@ -106,35 +130,15 @@ export const usePostsStore = defineStore('posts', () => {
     loading.value = true
 
     try {
-      const results = await Promise.allSettled([
+      await Promise.allSettled([
         fetchUsers(),
         fetchDealStatuses(),
         fetchDealFields(),
         fetchDeals(filterIdFrom.value, filterIdTo.value),
       ])
-
-      const [usersRes, statusesRes, fieldsRes, dealsRes] = results
-
-      //проверка на ошибки
-      const usersData = usersRes.status === 'fulfilled' ? usersRes.value : []
-      const dealStatuses = statusesRes.status === 'fulfilled' ? statusesRes.value : []
-      const dealFields = fieldsRes.status === 'fulfilled' ? fieldsRes.value : {}
-      const deals = dealsRes.status === 'fulfilled' ? dealsRes.value : []
-
-      const newUsersMap = prepareUsersMap(usersData)
-      const stageMap = createStageMap(dealStatuses)
-      const sourceMap = createSourceMap(dealStatuses)
-      const formattedDeals = formatDeals(deals, newUsersMap, stageMap, sourceMap)
-
-      users.value = usersData
-      usersObj.value = newUsersMap
-      info.value = { ...dealFields }
-      allPosts.value = formattedDeals
-      posts.value = formattedDeals.slice(0, limit)
-      start.value = limit
     } catch (error) {
       console.error(error)
-      alert('Сервис временно недоступен. Пожалуйста, попробуйте позже.')
+      alert('Произошла ошибка при загрузке данных.')
     } finally {
       loading.value = false
     }
@@ -143,49 +147,19 @@ export const usePostsStore = defineStore('posts', () => {
   const loadMorePosts = () => {
     if (start.value >= allPosts.value.length) return
     const nextPosts = allPosts.value.slice(start.value, start.value + limit)
-    console.log('Loading API finished')
     posts.value = [...posts.value, ...nextPosts]
     start.value += limit
   }
 
-  const searchById = async () => {
-    if (loading.value) return
-    loading.value = true
-
-    try {
-      const deals = await fetchDeals(filterIdFrom.value, filterIdTo.value)
-      const dealStatuses = await fetchDealStatuses()
-      const stageMap = createStageMap(dealStatuses)
-      const sourceMap = createSourceMap(dealStatuses)
-
-      const formattedDeals = formatDeals(deals, usersObj.value, stageMap, sourceMap)
-
-      allPosts.value = formattedDeals
-      posts.value = formattedDeals.slice(0, limit)
-      start.value = limit
-    } catch (error) {
-      console.error(error)
-      alert('Ошибка при получении данных с сервера.')
-    } finally {
-      loading.value = false
-    }
-  }
-
   const normalizeValue = (value: unknown, key: SortKey) => {
     const fieldInfo = info.value[key]
+    if (!fieldInfo || value == null || value === '') return ''
 
-    if (!fieldInfo) return value ?? ''
-
-    const type = fieldInfo.type
-
-    if (value === null || value === undefined || value === '') return ''
-
-    switch (type) {
+    switch (fieldInfo.type) {
       case 'integer':
       case 'double':
       case 'number':
         return Number(value)
-
       case 'date':
       case 'datetime':
         if (typeof value === 'string') {
@@ -193,10 +167,8 @@ export const usePostsStore = defineStore('posts', () => {
           return new Date(`${year}-${month}-${day}`).getTime()
         }
         return new Date(value as string).getTime()
-
       case 'boolean':
         return value ? 1 : 0
-
       case 'string':
       default:
         return String(value).toLowerCase()
@@ -207,27 +179,34 @@ export const usePostsStore = defineStore('posts', () => {
     allPosts.value.sort((a, b) => {
       const valA = normalizeValue(a[sortKey.value], sortKey.value)
       const valB = normalizeValue(b[sortKey.value], sortKey.value)
-
       if (valA < valB) return sortOrder.value === 'asc' ? -1 : 1
       if (valA > valB) return sortOrder.value === 'asc' ? 1 : -1
       return 0
     })
   }
 
-  const sortPosts = async (key: SortKey) => {
-    isSorting.value = true
+  const searchById = async () => {
+    if (loading.value) return
+    loading.value = true
+    try {
+      await fetchDeals(filterIdFrom.value, filterIdTo.value)
+    } catch (error) {
+      console.error(error)
+      alert('Ошибка при поиске по ID.')
+    } finally {
+      loading.value = false
+    }
+  }
 
-    if (sortKey.value === key) {
-      // если кликнули по тому же столбцу инвертируем порядок
-      sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
-    } else {
-      //сразу сортируем по убыванию
+  const sortPosts = (key: SortKey) => {
+    isSorting.value = true
+    if (sortKey.value === key) sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+    else {
       sortKey.value = key
       sortOrder.value = 'desc'
     }
 
     sortAllPosts()
-
     posts.value = allPosts.value.slice(0, limit)
     start.value = limit
     isSorting.value = false
@@ -235,7 +214,6 @@ export const usePostsStore = defineStore('posts', () => {
 
   return {
     allPosts,
-    loadApi,
     posts,
     users,
     info,
@@ -243,12 +221,13 @@ export const usePostsStore = defineStore('posts', () => {
     isSorting,
     start,
     limit,
-    loadMorePosts,
     filterIdFrom,
     filterIdTo,
-    searchById,
     sortKey,
     sortOrder,
+    loadApi,
+    loadMorePosts,
+    searchById,
     sortPosts,
   }
 })
