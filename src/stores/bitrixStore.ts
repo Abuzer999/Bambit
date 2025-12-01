@@ -3,7 +3,6 @@ import { defineStore } from 'pinia'
 import axios from 'axios'
 import type { User, Post, SortKey, FieldInfo, DealStatusItem, SortOrder } from '../interface/Deals'
 
-
 export const usePostsStore = defineStore('posts', () => {
   const allPosts = ref<Post[]>([])
   const posts = ref<Post[]>([])
@@ -32,17 +31,14 @@ export const usePostsStore = defineStore('posts', () => {
       .then((res) => res.data.result)
 
   const fetchDeals = (filterIdFrom?: number, filterIdTo?: number) => {
-    const hasFrom = typeof filterIdFrom === 'number' && !Number.isNaN(filterIdFrom)
-    const hasTo = typeof filterIdTo === 'number' && !Number.isNaN(filterIdTo)
+    const filter: Record<string, number> = {}
 
-    // ❗ Если одно из полей не заполнено
-    if (!hasFrom || !hasTo) {
-      return Promise.resolve([])
+    if (typeof filterIdFrom === 'number' && !Number.isNaN(filterIdFrom)) {
+      filter['>=ID'] = filterIdFrom
     }
 
-    const filter = {
-      '>=ID': filterIdFrom!,
-      '<=ID': filterIdTo!,
+    if (typeof filterIdTo === 'number' && !Number.isNaN(filterIdTo)) {
+      filter['<=ID'] = filterIdTo
     }
 
     const data = {
@@ -130,7 +126,6 @@ export const usePostsStore = defineStore('posts', () => {
       const sourceMap = createSourceMap(dealStatuses)
       const formattedDeals = formatDeals(deals, newUsersMap, stageMap, sourceMap)
 
-      
       users.value = usersData
       usersObj.value = newUsersMap
       info.value = { ...dealFields }
