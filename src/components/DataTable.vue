@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, useTemplateRef, ref, watch, nextTick, computed } from 'vue'
 import { useInfiniteScroll } from '@vueuse/core'
-import { usePostsStore } from '../stores/postsStore'
+import { usePostsStore } from '../stores/bitrixStore'
 import { Icon } from '@iconify/vue'
 import Loader from './Loader.vue'
 import { createColumnsConfig } from '../constants/column'
@@ -41,36 +41,37 @@ onMounted(async () => {
 
       <table
         v-else-if="postsStore.posts.length"
-        class="w-full table-auto border-collapse border border-gray-300"
+        class="w-full table-auto border-collapse border border-gray-200 dark:border-[#4b4b4b] text-[15px]"
       >
-        <thead class="sticky top-0 z-10 bg-muted border text-[15px]">
-          <tr class="text-black dark:text-white">
+        <thead
+          class="sticky top-0 z-10 bg-[#d5d5d5] dark:bg-[#2c2c2c] text-gray-900 dark:text-gray-100 border-b border-gray-300 dark:border-[#474747]"
+        >
+          <tr>
             <th
               v-for="tableHeader in tableHeaders"
-              class="border p-1 cursor-pointer"
+              :key="tableHeader.key"
+              class="border border-black dark:border-[#474747] p-2 cursor-pointer select-none hover:bg-[#c8c8c8] dark:hover:bg-[#3a3a3a] transition-colors font-medium"
               :style="{ width: tableHeaders.find((c) => c.key === tableHeader.key)?.width }"
               @click="postsStore.sortPosts(tableHeader.key)"
-              :key="tableHeader.key"
             >
               <div class="flex items-center justify-between">
                 <span>{{ tableHeader.label }}</span>
-                <span class="text-gray-400">
-                  <Icon icon="mdi:sort" />
-                </span>
+                <Icon icon="mdi:sort" class="text-gray-600 dark:text-gray-400" />
               </div>
             </th>
           </tr>
         </thead>
+
         <tbody>
           <tr
-            class="bg-primary text-white dark:text-black"
             v-for="post in postsStore.posts"
             :key="post.ID"
+            class="bg-[#e7e7e7] dark:bg-[#5f5e5e] text-gray-700 dark:text-gray-200 transition-colors"
           >
             <td
               v-for="col in tableHeaders"
               :key="col.key"
-              class="border p-2 max-w-[100px] truncate whitespace-nowrap overflow-hidden"
+              class="border border-black dark:border-[#464646] p-2 max-w-[100px] truncate whitespace-nowrap overflow-hidden"
               :title="String(post[col.key])"
             >
               {{ post[col.key] }}
@@ -79,11 +80,8 @@ onMounted(async () => {
         </tbody>
       </table>
 
-      <span
-        class="text-black dark:text-white flex items-center justify-center h-full"
-        v-else-if="!postsStore.posts.length"
-      >
-        Ничего не найдено
+      <span class="text-gray-600 dark:text-gray-300 flex items-center justify-center h-full" v-else>
+        Ничего не найдено
       </span>
     </div>
   </div>

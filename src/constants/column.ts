@@ -1,10 +1,4 @@
-import type { SortKey } from '../interface/SortKey'
-
-export interface ColumnConfig {
-  key: SortKey
-  label: string
-  width: string
-}
+import type { ColumnConfig } from '../interface/Deals'
 
 export const createColumnsConfig = (info: Record<string, { title?: string }>): ColumnConfig[] => [
   { key: 'ID', label: info['ID']?.title ?? 'ID', width: '60px' },

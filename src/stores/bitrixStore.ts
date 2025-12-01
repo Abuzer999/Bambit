@@ -1,22 +1,8 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import axios from 'axios'
-import type { User } from '../interface/User'
-import type { Post } from '../interface/Post'
-import type { SortKey } from '../interface/SortKey'
+import type { User, Post, SortKey, FieldInfo, DealStatusItem, SortOrder } from '../interface/Deals'
 
-type SortOrder = 'asc' | 'desc'
-
-interface FieldInfo {
-  type: string
-  title: string
-}
-
-type DealStatusItem = {
-  ENTITY_ID: string
-  STATUS_ID: string
-  NAME: string
-}
 
 export const usePostsStore = defineStore('posts', () => {
   const allPosts = ref<Post[]>([])
@@ -46,13 +32,21 @@ export const usePostsStore = defineStore('posts', () => {
       .then((res) => res.data.result)
 
   const fetchDeals = (filterIdFrom?: number, filterIdTo?: number) => {
-    if (!filterIdFrom) return Promise.resolve([])
+    const hasFrom = typeof filterIdFrom === 'number' && !Number.isNaN(filterIdFrom)
+    const hasTo = typeof filterIdTo === 'number' && !Number.isNaN(filterIdTo)
+
+    // ❗ Если одно из полей не заполнено
+    if (!hasFrom || !hasTo) {
+      return Promise.resolve([])
+    }
+
+    const filter = {
+      '>=ID': filterIdFrom!,
+      '<=ID': filterIdTo!,
+    }
 
     const data = {
-      filter: {
-        '>=ID': filterIdFrom,
-        '<=ID': filterIdTo,
-      },
+      filter,
       select: [
         'ID',
         'TITLE',
@@ -92,11 +86,8 @@ export const usePostsStore = defineStore('posts', () => {
       statuses.filter((s) => s.ENTITY_ID === 'SOURCE').map((s) => [s.STATUS_ID, s.NAME]),
     )
 
-  const prepareUsersMap = (usersArray: User[]) => {
-    usersObj.value = Object.fromEntries(
-      usersArray.map((u) => [u.ID, { fullName: `${u.NAME} ${u.LAST_NAME}` }]),
-    )
-  }
+  const prepareUsersMap = (usersArray: User[]): Record<number, { fullName: string }> =>
+    Object.fromEntries(usersArray.map((u) => [u.ID, { fullName: `${u.NAME} ${u.LAST_NAME}` }]))
 
   const formatDeals = (
     deals: Post[],
@@ -119,23 +110,32 @@ export const usePostsStore = defineStore('posts', () => {
     loading.value = true
 
     try {
-      const [usersData, dealStatuses, dealFields, deals] = await Promise.all([
+      const results = await Promise.allSettled([
         fetchUsers(),
         fetchDealStatuses(),
         fetchDealFields(),
         fetchDeals(filterIdFrom.value, filterIdTo.value),
       ])
 
-      users.value = usersData
-      prepareUsersMap(usersData)
-      info.value = dealFields
+      const [usersRes, statusesRes, fieldsRes, dealsRes] = results
 
+      //проверка на ошибки
+      const usersData = usersRes.status === 'fulfilled' ? usersRes.value : []
+      const dealStatuses = statusesRes.status === 'fulfilled' ? statusesRes.value : []
+      const dealFields = fieldsRes.status === 'fulfilled' ? fieldsRes.value : {}
+      const deals = dealsRes.status === 'fulfilled' ? dealsRes.value : []
+
+      const newUsersMap = prepareUsersMap(usersData)
       const stageMap = createStageMap(dealStatuses)
       const sourceMap = createSourceMap(dealStatuses)
+      const formattedDeals = formatDeals(deals, newUsersMap, stageMap, sourceMap)
 
-      allPosts.value = formatDeals(deals, usersObj.value, stageMap, sourceMap)
-
-      posts.value = allPosts.value.slice(0, limit)
+      
+      users.value = usersData
+      usersObj.value = newUsersMap
+      info.value = { ...dealFields }
+      allPosts.value = formattedDeals
+      posts.value = formattedDeals.slice(0, limit)
       start.value = limit
     } catch (error) {
       console.error(error)
@@ -149,7 +149,7 @@ export const usePostsStore = defineStore('posts', () => {
     if (start.value >= allPosts.value.length) return
     const nextPosts = allPosts.value.slice(start.value, start.value + limit)
     console.log('Loading API finished')
-    posts.value.push(...nextPosts)
+    posts.value = [...posts.value, ...nextPosts]
     start.value += limit
   }
 
@@ -159,14 +159,14 @@ export const usePostsStore = defineStore('posts', () => {
 
     try {
       const deals = await fetchDeals(filterIdFrom.value, filterIdTo.value)
-
       const dealStatuses = await fetchDealStatuses()
       const stageMap = createStageMap(dealStatuses)
       const sourceMap = createSourceMap(dealStatuses)
 
-      allPosts.value = formatDeals(deals, usersObj.value, stageMap, sourceMap)
+      const formattedDeals = formatDeals(deals, usersObj.value, stageMap, sourceMap)
 
-      posts.value = allPosts.value.slice(0, limit)
+      allPosts.value = formattedDeals
+      posts.value = formattedDeals.slice(0, limit)
       start.value = limit
     } catch (error) {
       console.error(error)
